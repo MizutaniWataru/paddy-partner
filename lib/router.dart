@@ -1,5 +1,4 @@
 // lib/router.dart
-// import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -7,6 +6,7 @@ import 'auth/auth_controller.dart';
 import 'auth/auth_state.dart';
 
 // pages
+import 'pages/boot_page.dart';
 import 'pages/welcome_page.dart';
 import 'pages/email_page.dart';
 import 'pages/email_otp_page.dart';
@@ -24,14 +24,27 @@ import 'pages/home_page.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
   final router = GoRouter(
-    initialLocation: '/welcome',
+    initialLocation: '/_boot',
+
     redirect: (context, state) {
       final authAsync = ref.read(authControllerProvider);
       final s = authAsync.asData?.value;
-
-      if (s == null) return null;
-
       final path = state.uri.path;
+
+      // ✅ まだAuthStateがロード中なら、/_boot に固定
+      if (s == null) {
+        return path == '/_boot' ? null : '/_boot';
+      }
+
+      // ✅ ロード完了後に /_boot に居たら、正しい場所へ飛ばす
+      if (path == '/_boot') {
+        if (s.isRegistered) {
+          return s.allVerifyDone ? '/home' : '/verify';
+        }
+        // 未登録なら「welcome」から始めたいなら welcome
+        // gateから始めたいなら _gatePath(s)
+        return '/welcome';
+      }
 
       // ===== 登録済み =====
       if (s.isRegistered) {
@@ -39,7 +52,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           if (path != '/home') return '/home';
           return null;
         }
-
         if (!path.startsWith('/verify')) return '/verify';
         return null;
       }
@@ -50,15 +62,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
 
       // 途中で verify/home に入ろうとしたらブロック
       if (path.startsWith('/verify') || path == '/home') {
-        // ↓ gate に戻す
         return _gatePath(s);
       }
 
-      // 「次に進むべき場所（未完了の最初）」＝ gate
       final gate = _gatePath(s);
 
-      // gateより "先" に行こうとしたら止める（=スキップ禁止）
-      // gateより "前" はOK（戻れる）
       final flowIndex = <String, int>{
         '/welcome': 0,
         '/email': 1,
@@ -79,6 +87,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     },
 
     routes: [
+      GoRoute(path: '/_boot', builder: (_, _) => const BootPage()),
+
       GoRoute(path: '/welcome', builder: (_, _) => const WelcomePage()),
       GoRoute(path: '/email', builder: (_, _) => const EmailPage()),
       GoRoute(path: '/email-otp', builder: (_, _) => const EmailOtpPage()),
@@ -88,6 +98,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/location', builder: (_, _) => const LocationPage()),
       GoRoute(path: '/transport', builder: (_, _) => const TransportPage()),
       GoRoute(path: '/done', builder: (_, _) => const DonePage()),
+
       GoRoute(path: '/verify', builder: (_, _) => const VerifyPage()),
       GoRoute(path: '/verify/id', builder: (_, _) => const VerifyIdPage()),
       GoRoute(
@@ -95,11 +106,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (_, __) => const VerifyPhotoPage(),
       ),
       GoRoute(path: '/verify/bank', builder: (_, _) => const VerifyBankPage()),
+
       GoRoute(path: '/home', builder: (_, _) => const HomePage()),
     ],
   );
 
-  // 認証状態が変わったらリダイレクト再評価
   ref.listen(authControllerProvider, (_, __) => router.refresh());
   return router;
 });
