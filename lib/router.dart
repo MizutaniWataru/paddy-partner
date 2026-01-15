@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'auth/auth_controller.dart';
+import 'auth/auth_state.dart';
 
 // pages
 import 'pages/welcome_page.dart';
@@ -28,12 +29,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       final authAsync = ref.read(authControllerProvider);
       final s = authAsync.asData?.value;
 
-      // まだ初期化中なら何もしない（スプラッシュを作るならそこへ飛ばしてもOK）
       if (s == null) return null;
 
-      if (s.isRegistered) {
-        final path = state.uri.path;
+      final path = state.uri.path;
 
+      // ===== 登録済み =====
+      if (s.isRegistered) {
         if (s.allVerifyDone) {
           if (path != '/home') return '/home';
           return null;
@@ -43,52 +44,40 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         return null;
       }
 
-      // ここから「順番強制」
-      final path = state.uri.path;
-
-      // welcome はいつでもOK
+      // ===== 未登録 =====
+      // welcomeはいつでもOK
       if (path == '/welcome') return null;
 
-      // email未入力なら email へ
-      if ((s.email ?? '').isEmpty) {
-        return path == '/email' ? null : '/email';
+      // 途中で verify/home に入ろうとしたらブロック
+      if (path.startsWith('/verify') || path == '/home') {
+        // ↓ gate に戻す
+        return _gatePath(s);
       }
 
-      // email認証前なら email-otp へ
-      if (!s.emailVerified) {
-        return path == '/email-otp' ? null : '/email-otp';
-      }
+      // 「次に進むべき場所（未完了の最初）」＝ gate
+      final gate = _gatePath(s);
 
-      // phone 未入力なら phone へ
-      if ((s.phone ?? '').isEmpty) {
-        return path == '/phone' ? null : '/phone';
-      }
+      // gateより "先" に行こうとしたら止める（=スキップ禁止）
+      // gateより "前" はOK（戻れる）
+      final flowIndex = <String, int>{
+        '/welcome': 0,
+        '/email': 1,
+        '/email-otp': 2,
+        '/phone': 3,
+        '/name': 4,
+        '/consent': 5,
+        '/location': 6,
+        '/transport': 7,
+        '/done': 8,
+      };
 
-      // 名前未入力なら name へ
-      if ((s.familyName ?? '').isEmpty || (s.givenName ?? '').isEmpty) {
-        return path == '/name' ? null : '/name';
-      }
+      int idx(String p) => flowIndex[p] ?? 999;
 
-      // 同意してなければ consent へ
-      if (!s.consented) {
-        return path == '/consent' ? null : '/consent';
-      }
-
-      // 県/市が未入力なら location へ
-      if ((s.pref ?? '').isEmpty || (s.city ?? '').isEmpty) {
-        return path == '/location' ? null : '/location';
-      }
-
-      // 移動方法未選択なら transport へ
-      if (s.transport == null) {
-        return path == '/transport' ? null : '/transport';
-      }
-
-      // ここまで揃ったら doneへ誘導（登録保存は transport の次でやる想定）
-      if (path != '/done') return '/done';
+      if (idx(path) > idx(gate)) return gate;
 
       return null;
     },
+
     routes: [
       GoRoute(path: '/welcome', builder: (_, _) => const WelcomePage()),
       GoRoute(path: '/email', builder: (_, _) => const EmailPage()),
@@ -114,3 +103,16 @@ final appRouterProvider = Provider<GoRouter>((ref) {
   ref.listen(authControllerProvider, (_, __) => router.refresh());
   return router;
 });
+
+String _gatePath(AuthState s) {
+  if ((s.email ?? '').isEmpty) return '/email';
+  if (!s.emailVerified) return '/email-otp';
+  if ((s.phone ?? '').isEmpty) return '/phone';
+  if ((s.familyName ?? '').isEmpty || (s.givenName ?? '').isEmpty) {
+    return '/name';
+  }
+  if (!s.consented) return '/consent';
+  if ((s.pref ?? '').isEmpty || (s.city ?? '').isEmpty) return '/location';
+  if (s.transport == null) return '/transport';
+  return '/done';
+}

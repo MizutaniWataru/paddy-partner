@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../auth/auth_controller.dart';
+import '../widgets/app_bottom_bar.dart';
 
 class ConsentPage extends ConsumerStatefulWidget {
   const ConsentPage({super.key});
@@ -137,27 +138,28 @@ class _ConsentPageState extends ConsumerState<ConsentPage> {
               ),
 
               const Spacer(),
-
-              // ボタン位置：今のまま下固定
-              SizedBox(
-                width: double.infinity,
-                height: 52,
-                child: FilledButton(
-                  onPressed: _checked
-                      ? () async {
-                          await ref
-                              .read(authControllerProvider.notifier)
-                              .setConsented(true);
-                          if (!context.mounted) return;
-                          context.go('/location');
-                        }
-                      : null,
-                  child: const Text('次へ'),
-                ),
-              ),
             ],
           ),
         ),
+      ),
+      bottomNavigationBar: AppBottomBar(
+        onBack: () {
+          if (context.canPop()) {
+            context.pop();
+          } else {
+            context.go('/welcome');
+          }
+        },
+        onNext: _checked
+            ? () async {
+                await ref
+                    .read(authControllerProvider.notifier)
+                    .setConsented(true);
+                if (!context.mounted) return;
+                context.push('/location');
+              }
+            : null,
+        nextEnabled: _checked,
       ),
     );
   }

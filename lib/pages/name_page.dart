@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../auth/auth_controller.dart';
+import '../widgets/app_bottom_bar.dart';
 
 class NamePage extends ConsumerStatefulWidget {
   const NamePage({super.key});
@@ -17,6 +18,20 @@ class _NamePageState extends ConsumerState<NamePage> {
   final _family = TextEditingController();
   final _given = TextEditingController();
 
+  bool get _canNext =>
+      _family.text.trim().isNotEmpty && _given.text.trim().isNotEmpty;
+
+  @override
+  void initState() {
+    super.initState();
+    _family.addListener(() {
+      if (mounted) setState(() {});
+    });
+    _given.addListener(() {
+      if (mounted) setState(() {});
+    });
+  }
+
   @override
   void dispose() {
     _family.dispose();
@@ -24,13 +39,30 @@ class _NamePageState extends ConsumerState<NamePage> {
     super.dispose();
   }
 
+  Future<void> _onNext(BuildContext context) async {
+    if (!_formKey.currentState!.validate()) return;
+
+    await ref
+        .read(authControllerProvider.notifier)
+        .setName(
+          familyName: _family.text.trim(),
+          givenName: _given.text.trim(),
+        );
+
+    if (!context.mounted) return;
+    context.push('/consent');
+  }
+
   @override
   Widget build(BuildContext context) {
     final s = ref.watch(authControllerProvider).asData?.value;
-    if (_family.text.isEmpty && (s?.familyName ?? '').isNotEmpty)
+
+    if (_family.text.isEmpty && (s?.familyName ?? '').isNotEmpty) {
       _family.text = s!.familyName!;
-    if (_given.text.isEmpty && (s?.givenName ?? '').isNotEmpty)
+    }
+    if (_given.text.isEmpty && (s?.givenName ?? '').isNotEmpty) {
       _given.text = s!.givenName!;
+    }
 
     return Scaffold(
       appBar: AppBar(title: const Text('お名前')),
@@ -57,29 +89,22 @@ class _NamePageState extends ConsumerState<NamePage> {
                   decoration: const InputDecoration(labelText: '名'),
                   validator: (v) => (v ?? '').trim().isEmpty ? '名を入力して' : null,
                 ),
-                const SizedBox(height: 16),
-                SizedBox(
-                  width: double.infinity,
-                  height: 52,
-                  child: FilledButton(
-                    onPressed: () async {
-                      if (!_formKey.currentState!.validate()) return;
-                      await ref
-                          .read(authControllerProvider.notifier)
-                          .setName(
-                            familyName: _family.text.trim(),
-                            givenName: _given.text.trim(),
-                          );
-                      if (!context.mounted) return;
-                      context.go('/consent');
-                    },
-                    child: const Text('次へ'),
-                  ),
-                ),
               ],
             ),
           ),
         ),
+      ),
+
+      bottomNavigationBar: AppBottomBar(
+        onBack: () {
+          if (context.canPop()) {
+            context.pop();
+          } else {
+            context.go('/welcome');
+          }
+        },
+        onNext: _canNext ? () => _onNext(context) : null,
+        nextEnabled: _canNext,
       ),
     );
   }

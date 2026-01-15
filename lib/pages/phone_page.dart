@@ -1,9 +1,11 @@
 // lib/pages/phone_page.dart
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../auth/auth_controller.dart';
+import '../widgets/app_bottom_bar.dart';
 
 class PhonePage extends ConsumerStatefulWidget {
   const PhonePage({super.key});
@@ -16,7 +18,6 @@ class _PhonePageState extends ConsumerState<PhonePage> {
   final _formKey = GlobalKey<FormState>();
   final _phone = TextEditingController();
 
-  // 最低限の国リスト（必要なら増やす）
   static const _countries = <({String label, String code})>[
     (label: '日本 (+81)', code: '+81'),
     (label: '米国 (+1)', code: '+1'),
@@ -25,6 +26,20 @@ class _PhonePageState extends ConsumerState<PhonePage> {
   ];
 
   String _countryCode = '+81';
+
+  bool get _canNext {
+    final t = _phone.text.trim();
+    final digits = t.replaceAll(RegExp(r'[^0-9]'), '');
+    return digits.isNotEmpty && digits.length >= 10;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _phone.addListener(() {
+      if (mounted) setState(() {});
+    });
+  }
 
   @override
   void dispose() {
@@ -35,9 +50,9 @@ class _PhonePageState extends ConsumerState<PhonePage> {
   @override
   Widget build(BuildContext context) {
     final s = ref.watch(authControllerProvider).asData?.value;
+
     if (s != null) {
       _countryCode = s.countryCode;
-      // phoneは毎回上書きしない（入力中に消えるの防止）
       if (_phone.text.isEmpty && (s.phone ?? '').isNotEmpty) {
         _phone.text = s.phone!;
       }
@@ -76,45 +91,58 @@ class _PhonePageState extends ConsumerState<PhonePage> {
                       child: TextFormField(
                         controller: _phone,
                         keyboardType: TextInputType.phone,
+                        inputFormatters: [
+                          FilteringTextInputFormatter.allow(
+                            RegExp(r'[0-9\- ]'),
+                          ),
+                        ],
                         decoration: const InputDecoration(
                           labelText: '携帯電話番号',
                           hintText: '例: 09012345678',
                         ),
                         validator: (v) {
-                          final t = (v ?? '').trim();
-                          if (t.isEmpty) return '電話番号を入力して';
-                          if (t.length < 10) return '短すぎるかも';
+                          final digits = (v ?? '').trim().replaceAll(
+                            RegExp(r'[^0-9]'),
+                            '',
+                          );
+                          if (digits.isEmpty) return '電話番号を入力して';
+                          if (digits.length < 10) return '短すぎます';
                           return null;
                         },
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 16),
-                SizedBox(
-                  width: double.infinity,
-                  height: 52,
-                  child: FilledButton(
-                    onPressed: () async {
-                      if (!_formKey.currentState!.validate()) return;
-
-                      await ref
-                          .read(authControllerProvider.notifier)
-                          .setPhone(
-                            countryCode: _countryCode,
-                            phone: _phone.text.trim(),
-                          );
-
-                      if (!context.mounted) return;
-                      context.go('/name');
-                    },
-                    child: const Text('次へ'),
-                  ),
-                ),
               ],
             ),
           ),
         ),
+      ),
+
+      bottomNavigationBar: AppBottomBar(
+        onBack: () {
+          if (context.canPop()) {
+            context.pop();
+          } else {
+            context.go('/welcome');
+          }
+        },
+        onNext: _canNext
+            ? () async {
+                if (!_formKey.currentState!.validate()) return;
+
+                await ref
+                    .read(authControllerProvider.notifier)
+                    .setPhone(
+                      countryCode: _countryCode,
+                      phone: _phone.text.trim(),
+                    );
+
+                if (!context.mounted) return;
+                context.push('/name');
+              }
+            : null,
+        nextEnabled: _canNext,
       ),
     );
   }

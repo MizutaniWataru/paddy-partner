@@ -125,7 +125,7 @@ class _WelcomePageState extends ConsumerState<WelcomePage> {
                   await ctrl.sendEmailOtp();
 
                   if (!context.mounted) return;
-                  context.go('/email_otp');
+                  context.push('/email-otp');
                 },
 
                 child: const Text(

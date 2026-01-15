@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 
 import '../auth/auth_controller.dart';
 import '../auth/auth_state.dart';
+import '../widgets/app_bottom_bar.dart';
 
 class TransportPage extends ConsumerStatefulWidget {
   const TransportPage({super.key});
@@ -20,6 +21,7 @@ class _TransportPageState extends ConsumerState<TransportPage> {
   Widget build(BuildContext context) {
     final s = ref.watch(authControllerProvider).asData?.value;
     _selected ??= s?.transport;
+    final canNext = _selected != null;
 
     return Scaffold(
       appBar: AppBar(title: const Text('移動方法')),
@@ -42,27 +44,28 @@ class _TransportPageState extends ConsumerState<TransportPage> {
                 title: const Text('車両'),
               ),
               const Spacer(),
-              SizedBox(
-                width: double.infinity,
-                height: 52,
-                child: FilledButton(
-                  onPressed: _selected == null
-                      ? null
-                      : () async {
-                          final ctrl = ref.read(
-                            authControllerProvider.notifier,
-                          );
-                          await ctrl.setTransport(_selected!);
-                          await ctrl.completeRegistration();
-                          if (!context.mounted) return;
-                          context.go('/verify');
-                        },
-                  child: const Text('次へ'),
-                ),
-              ),
             ],
           ),
         ),
+      ),
+      bottomNavigationBar: AppBottomBar(
+        onBack: () {
+          if (context.canPop()) {
+            context.pop();
+          } else {
+            context.go('/welcome');
+          }
+        },
+        onNext: canNext
+            ? () async {
+                final ctrl = ref.read(authControllerProvider.notifier);
+                await ctrl.setTransport(_selected!);
+                await ctrl.completeRegistration();
+                if (!context.mounted) return;
+                context.push('/verify');
+              }
+            : null,
+        nextEnabled: canNext,
       ),
     );
   }

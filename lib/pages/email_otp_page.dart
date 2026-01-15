@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:flutter/foundation.dart';
 
 import '../auth/auth_controller.dart';
+import '../widgets/app_bottom_bar.dart';
 
 class EmailOtpPage extends ConsumerStatefulWidget {
   const EmailOtpPage({super.key});
@@ -87,7 +88,7 @@ class _EmailOtpPageState extends ConsumerState<EmailOtpPage> {
       return;
     }
 
-    context.go('/phone');
+    context.push('/phone');
   }
 
   Future<void> _onResend(BuildContext context) async {
@@ -299,52 +300,16 @@ class _EmailOtpPageState extends ConsumerState<EmailOtpPage> {
         ),
       ),
 
-      bottomNavigationBar: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-          child: Row(
-            children: [
-              // 戻る
-              SizedBox(
-                width: 54,
-                height: 54,
-                child: OutlinedButton(
-                  onPressed: () => context.go('/welcome'),
-                  style: OutlinedButton.styleFrom(
-                    shape: const StadiumBorder(),
-                    side: BorderSide.none,
-                    backgroundColor: const Color(0xFFF2F2F2),
-                  ),
-                  child: const Icon(Icons.arrow_back),
-                ),
-              ),
-              const Spacer(),
-
-              // 次へ
-              SizedBox(
-                width: 150,
-                height: 54,
-                child: FilledButton.icon(
-                  onPressed: _canNext ? () => _onNext(context) : null,
-                  style: FilledButton.styleFrom(
-                    backgroundColor: _canNext
-                        ? Colors.black
-                        : const Color(0xFFE0E0E0),
-                    shape: const StadiumBorder(),
-                  ),
-                  icon: const Text(
-                    '次へ',
-                    style: TextStyle(fontWeight: FontWeight.w800),
-                  ),
-                  label: Icon(
-                    Icons.arrow_forward,
-                    color: _canNext ? Colors.white : Colors.black26,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
+      bottomNavigationBar: AppBottomBar(
+        onBack: () {
+          if (context.canPop()) {
+            context.pop();
+          } else {
+            context.go('/welcome');
+          }
+        },
+        onNext: _canNext ? () => _onNext(context) : null,
+        nextEnabled: _canNext,
       ),
     );
   }

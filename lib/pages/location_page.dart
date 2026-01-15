@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 
 import '../auth/auth_controller.dart';
 import '../module/providers.dart';
+import '../widgets/app_bottom_bar.dart';
 
 class LocationPage extends ConsumerStatefulWidget {
   const LocationPage({super.key});
@@ -26,6 +27,8 @@ class _LocationPageState extends ConsumerState<LocationPage> {
     _city ??= auth?.city;
 
     final masterAsync = ref.watch(prefCityMasterProvider);
+    final canNext =
+        (_pref != null && _city != null) && masterAsync is AsyncData;
 
     return Scaffold(
       appBar: AppBar(title: const Text('収入を得る場所')),
@@ -78,27 +81,30 @@ class _LocationPageState extends ConsumerState<LocationPage> {
                     decoration: const InputDecoration(labelText: '市区町村'),
                   ),
                   const SizedBox(height: 16),
-                  SizedBox(
-                    width: double.infinity,
-                    height: 52,
-                    child: FilledButton(
-                      onPressed: (_pref != null && _city != null)
-                          ? () async {
-                              await ref
-                                  .read(authControllerProvider.notifier)
-                                  .setLocation(pref: _pref!, city: _city!);
-                              if (!context.mounted) return;
-                              context.go('/transport');
-                            }
-                          : null,
-                      child: const Text('次へ'),
-                    ),
-                  ),
                 ],
               );
             },
           ),
         ),
+      ),
+      bottomNavigationBar: AppBottomBar(
+        onBack: () {
+          if (context.canPop()) {
+            context.pop();
+          } else {
+            context.go('/welcome');
+          }
+        },
+        onNext: canNext
+            ? () async {
+                await ref
+                    .read(authControllerProvider.notifier)
+                    .setLocation(pref: _pref!, city: _city!);
+                if (!context.mounted) return;
+                context.push('/transport');
+              }
+            : null,
+        nextEnabled: canNext,
       ),
     );
   }
