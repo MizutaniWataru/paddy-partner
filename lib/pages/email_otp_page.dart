@@ -1,7 +1,9 @@
+// lib/pages/email_otp_page.dart
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:flutter/foundation.dart';
 
 import '../auth/auth_controller.dart';
 
@@ -85,7 +87,6 @@ class _EmailOtpPageState extends ConsumerState<EmailOtpPage> {
       return;
     }
 
-    // 次へ（あなたのフローに合わせて変更OK）
     context.go('/phone');
   }
 
@@ -100,6 +101,16 @@ class _EmailOtpPageState extends ConsumerState<EmailOtpPage> {
       await ref.read(authControllerProvider.notifier).resendEmailOtp();
 
       if (!context.mounted) return;
+
+      for (final c in _controllers) {
+        c.clear();
+      }
+      FocusScope.of(context).unfocus();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        _focusNodes[0].requestFocus();
+      });
+
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text('認証コードを再送信しました')));
@@ -263,6 +274,24 @@ class _EmailOtpPageState extends ConsumerState<EmailOtpPage> {
                   child: Text(_resending ? '送信中...' : '再送信'),
                 ),
               ),
+              if (kDebugMode) ...[
+                const SizedBox(height: 12),
+                OutlinedButton(
+                  onPressed: () {
+                    final code = ref
+                        .read(authControllerProvider)
+                        .asData
+                        ?.value
+                        .emailOtpCode;
+                    if (code == null || code.isEmpty) {
+                      setState(() => _error = 'OTPがまだ発行されてない');
+                      return;
+                    }
+                    _setAllFromPaste(code);
+                  },
+                  child: const Text('DEV: OTPを自動入力'),
+                ),
+              ],
 
               const Spacer(),
             ],

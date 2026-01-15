@@ -1,3 +1,4 @@
+// lib/pages/welcome_page.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -118,14 +119,15 @@ class _WelcomePageState extends ConsumerState<WelcomePage> {
 
                   final email = _input.text.trim();
 
-                  await ref
-                      .read(authControllerProvider.notifier)
-                      .setEmail(email);
+                  final ctrl = ref.read(authControllerProvider.notifier);
+
+                  await ctrl.setEmail(email);
+                  await ctrl.sendEmailOtp();
 
                   if (!context.mounted) return;
-
                   context.go('/email_otp');
                 },
+
                 child: const Text(
                   '続行',
                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),

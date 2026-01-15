@@ -1,6 +1,7 @@
 // lib/auth/auth_controller.dart
 import 'dart:math';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/foundation.dart';
 
 import 'auth_state.dart';
 import 'auth_storage.dart';
@@ -39,16 +40,19 @@ class AuthController extends AsyncNotifier<AuthState> {
     if ((s.email ?? '').isEmpty) return;
 
     final code = _genOtp();
-    // ignore: avoid_print
-    print('[DEV EMAIL OTP] $code');
 
-    state = AsyncData(s.copyWith(emailOtpSent: true, emailOtpCode: code));
+    if (kDebugMode) {
+      debugPrint('[DEV EMAIL OTP] $code  -> ${s.email}');
+    }
+
+    state = AsyncData(
+      s.copyWith(emailOtpSent: true, emailOtpCode: code, emailVerified: false),
+    );
   }
 
   Future<void> resendEmailOtp() async {
-    final s = state.value ?? const AuthState();
     await Future.delayed(const Duration(milliseconds: 400));
-    print('resend OTP to ${s.email}');
+    await sendEmailOtp();
   }
 
   Future<bool> verifyEmailOtp(String input) async {
